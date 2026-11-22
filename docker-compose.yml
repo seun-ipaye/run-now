@@ -1,0 +1,24 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    # SQL Server has no ARM build; on Apple Silicon this runs under Rosetta.
+    # Enable Docker Desktop > Settings > General > "Use Rosetta for x86_64/amd64 emulation".
+    platform: linux/amd64
+    container_name: runnow-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"   # local dev only; Developer Edition is not licensed for production
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?set MSSQL_SA_PASSWORD in .env}"
+    ports:
+      - "${MSSQL_PORT:-1433}:1433"
+    volumes:
+      - runnow-sql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  runnow-sql-data:
