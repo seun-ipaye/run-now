@@ -47,3 +47,43 @@ def test_health_reports_the_loaded_network(client):
     res = client.get("/health")
     assert res.status_code == 200
     assert res.json() == {"status": "ok", "nodes": client.graph.number_of_nodes()}
+
+
+def test_geocode_returns_matches(client, monkeypatch):
+    import api.geocode
+    monkeypatch.setattr(api.geocode, "_fetch", lambda q: [
+        {"display_name": "CN Tower, 290, Bremner Boulevard, Harbourfront-CityPlace, Toronto, Golden Horseshoe, Ontario, M5V 3L9, Canada",
+         "lat": "43.6425637", "lon": "-79.3870872"},
+    ])
+    api.geocode._search_cached.cache_clear()
+    res = client.get("/geocode", params={"q": "CN Tower"})
+    assert res.status_code == 200
+    assert res.json() == {"results": [{
+        "name": "CN Tower, 290, Bremner Boulevard, Harbourfront-CityPlace",
+        "lat": 43.6425637, "lon": -79.3870872,
+    }]}
+
+
+def test_geocode_caches_repeat_searches(client, monkeypatch):
+    import api.geocode
+    calls = []
+    monkeypatch.setattr(api.geocode, "_fetch", lambda q: calls.append(q) or [])
+    api.geocode._search_cached.cache_clear()
+    client.get("/geocode", params={"q": "High Park"})
+    client.get("/geocode", params={"q": "  high   PARK "})
+    assert calls == ["high park"]
+
+
+def test_geocode_reports_lookup_outage(client, monkeypatch):
+    import api.geocode
+
+    def down(q):
+        raise OSError("network down")
+    monkeypatch.setattr(api.geocode, "_fetch", down)
+    api.geocode._search_cached.cache_clear()
+    res = client.get("/geocode", params={"q": "Union Station"})
+    assert res.status_code == 502
+
+
+def test_geocode_rejects_short_queries(client):
+    assert client.get("/geocode", params={"q": "ab"}).status_code == 422

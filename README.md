@@ -94,6 +94,8 @@ The production image installs only `requirements-api.txt` (FastAPI, uvicorn, Net
 
 ## API
 
+`GET /geocode?q=CN Tower` looks up an address and returns up to five matches inside Toronto, from OpenStreetMap's Nominatim service. Lookups are cached and limited to one per second, as Nominatim's usage policy requires.
+
 `GET /health` reports whether the street network is loaded.
 
 `GET /loop?lat=43.6465&lon=-79.4637&km=5` returns a GeoJSON `Feature`: the loop as a `LineString`, plus `distance_km`, `target_km`, `signals` (how many signalized intersections it passes), `signal_locations` and `repeated_km` (distance run twice). Start points must be inside Toronto, and distances between 0.5 and 30 km.

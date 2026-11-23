@@ -30,13 +30,29 @@
   .stats span { color:var(--muted); font-size:12px; }
   .error { color:var(--accent); }
   .note { color:var(--muted); font-size:12px; margin-top:8px; }
+  .search { display:flex; gap:6px; margin-bottom:12px; }
+  .search input { flex:1; min-width:0; padding:9px 10px; border:1px solid var(--border); border-radius:8px;
+                  background:var(--bg); color:var(--fg); font:inherit; font-size:16px; }
+  .search button { margin:0; width:auto; padding:9px 12px; font-size:14px; }
+  #matches { list-style:none; margin:-6px 0 12px; padding:0; border:1px solid var(--border);
+             border-radius:8px; overflow:hidden; }
+  #matches:empty { display:none; }
+  #matches li { padding:8px 10px; font-size:13px; cursor:pointer; border-top:1px solid var(--border); }
+  #matches li:first-child { border-top:0; }
+  #matches li:hover, #matches li:focus { background:var(--border); outline:none; }
+  #matches li.empty { cursor:default; color:var(--muted); }
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div class="panel">
   <h1>RunNow</h1>
-  <p class="hint">Click the map to set your start, pick a distance, then find a loop.</p>
+  <p class="hint">Enter an address or click the map to set your start, pick a distance, then find a loop.</p>
+  <form class="search" id="searchForm">
+    <input id="address" type="search" placeholder="Enter address" autocomplete="street-address" aria-label="Start address">
+    <button id="searchBtn" type="submit">Search</button>
+  </form>
+  <ul id="matches"></ul>
   <label>Distance <input id="km" type="range" min="1" max="25" step="0.5" value="5"> <span id="kmLabel">5 km</span></label>
   <button id="go" disabled>Find a loop</button>
   <div id="result"></div>
@@ -58,12 +74,60 @@ const routeLayer = L.layerGroup().addTo(map);
 
 kmInput.oninput = () => kmLabel.textContent = kmInput.value + ' km';
 
-map.on('click', e => {
-  start = e.latlng;
+function setStart(latlng) {
+  start = latlng;
   if (startMarker) startMarker.setLatLng(start);
   else startMarker = L.marker(start).addTo(map).bindTooltip('Start');
   go.disabled = false;
-});
+}
+
+map.on('click', e => { setStart(e.latlng); matches.innerHTML = ''; });
+
+// Address search
+const searchForm = document.getElementById('searchForm');
+const address = document.getElementById('address');
+const searchBtn = document.getElementById('searchBtn');
+const matches = document.getElementById('matches');
+
+function chooseMatch(m) {
+  setStart(L.latLng(m.lat, m.lon));
+  map.setView([m.lat, m.lon], 15);
+  address.value = m.name;
+  matches.innerHTML = '';
+}
+
+function showMessage(text) {
+  const li = document.createElement('li');
+  li.className = 'empty';
+  li.textContent = text;
+  matches.replaceChildren(li);
+}
+
+searchForm.onsubmit = async e => {
+  e.preventDefault();
+  const q = address.value.trim();
+  if (q.length < 3) return showMessage('Type at least 3 characters.');
+  searchBtn.disabled = true; searchBtn.textContent = '…';
+  try {
+    const res = await fetch('/geocode?q=' + encodeURIComponent(q));
+    const data = await res.json();
+    if (!res.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Address lookup failed.');
+    if (!data.results.length) return showMessage('No matches in Toronto. Try adding a street number or clicking the map.');
+    if (data.results.length === 1) return chooseMatch(data.results[0]);
+    matches.replaceChildren(...data.results.map(m => {
+      const li = document.createElement('li');
+      li.textContent = m.name;  // textContent, never innerHTML, for outside data
+      li.tabIndex = 0;
+      li.onclick = () => chooseMatch(m);
+      li.onkeydown = ev => { if (ev.key === 'Enter') chooseMatch(m); };
+      return li;
+    }));
+  } catch (err) {
+    showMessage(err.message);
+  } finally {
+    searchBtn.disabled = false; searchBtn.textContent = 'Search';
+  }
+};
 
 go.onclick = async () => {
   go.disabled = true; go.textContent = 'Finding a loop…';
@@ -81,7 +145,13 @@ go.onclick = async () => {
       L.circleMarker([lat, lon], { radius: 7, color: '#fff', weight: 2, fillColor: '#e4572e', fillOpacity: 1 })
         .bindTooltip('Traffic light').addTo(routeLayer);
     }
-    map.fitBounds(line.getBounds(), { padding: [40, 40] });
+    // Keep the loop clear of the panel: on wide screens it sits on the left, on phones on top.
+    const panel = document.querySelector('.panel').getBoundingClientRect();
+    const wide = window.innerWidth > 700;
+    map.fitBounds(line.getBounds(), {
+      paddingTopLeft: wide ? [panel.right + 24, 40] : [24, panel.bottom + 24],
+      paddingBottomRight: [40, 40],
+    });
     const p = data.properties;
     result.innerHTML = `
       <div class="stats">

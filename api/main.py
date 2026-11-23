@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 
+from api import geocode
 from api.graph import load_graph
 from api.routing import find_loop
 
@@ -39,6 +40,15 @@ def health():
     if g is None:
         raise HTTPException(503, "Street network not loaded")
     return {"status": "ok", "nodes": g.number_of_nodes()}
+
+
+@app.get("/geocode")
+def geocode_address(q: str = Query(..., min_length=3, max_length=200, description="Address or place in Toronto")):
+    """Look up an address. Returns up to five matches inside Toronto."""
+    try:
+        return {"results": geocode.search(q)}
+    except OSError:
+        raise HTTPException(502, "Address lookup is unavailable right now. Click the map instead.")
 
 
 @app.get("/loop")
