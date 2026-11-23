@@ -4,8 +4,6 @@ Running loops in Toronto with the fewest red lights.
 
 Pick a start point and a distance, and RunNow returns a loop that avoids signalized intersections.
 
-**What it promises:** the loop with the fewest stops. **What it doesn't promise:** that a light will be green when you get there. Toronto doesn't publish live signal phase data, and many of its signals adapt to traffic in real time, so you can't predict greens from open data.
-
 ## Stack
 
 SQL Server 2022 (T-SQL views, spatial stored procedures) · Python ETL (Pandas, GeoPandas, OSMnx, SQLAlchemy) · NetworkX routing · FastAPI · Angular + Leaflet (planned)

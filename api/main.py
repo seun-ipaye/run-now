@@ -1,11 +1,13 @@
 """RunNow API.
 
 Run from the repo root:  .venv/bin/uvicorn api.main:app --reload
-Then open http://localhost:8000/docs
+Then open http://localhost:8000 for the map, or /docs for the API.
 """
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
 
 from api.graph import load_graph
 from api.routing import find_loop
@@ -21,6 +23,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="RunNow", lifespan=lifespan)
+
+MAP_PAGE = Path(__file__).resolve().parent.parent / "web" / "index.html"
+
+
+@app.get("/", include_in_schema=False)
+def map_page():
+    return FileResponse(MAP_PAGE)
 
 
 @app.get("/loop")
