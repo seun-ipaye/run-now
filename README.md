@@ -4,6 +4,8 @@ Running loops in Toronto with the fewest red lights.
 
 Pick a start point and a distance, and RunNow returns a loop that avoids signalized intersections.
 
+![A 4.8 km RunNow loop from the CN Tower along the waterfront, passing 3 traffic lights](docs/screenshot.webp)
+
 ## Stack
 
 SQL Server 2022 (spatial data) · Python ETL (Pandas, OSMnx, SQLAlchemy) · NetworkX routing · FastAPI · Leaflet map page (Angular front end planned)
