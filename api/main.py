@@ -32,6 +32,15 @@ def map_page():
     return FileResponse(MAP_PAGE)
 
 
+@app.get("/health", include_in_schema=False)
+def health():
+    """Used by Railway to know the app is up and the street network is loaded."""
+    g = state.get("graph")
+    if g is None:
+        raise HTTPException(503, "Street network not loaded")
+    return {"status": "ok", "nodes": g.number_of_nodes()}
+
+
 @app.get("/loop")
 def loop(
     lat: float = Query(..., ge=43.5, le=43.9, description="Start latitude (Toronto)"),

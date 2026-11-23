@@ -1,0 +1,3 @@
+fastapi==0.165.0
+networkx==3.7
+uvicorn==0.54.0

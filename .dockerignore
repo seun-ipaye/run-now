@@ -1,0 +1,6 @@
+*
+!api/
+!web/
+!data/graph/
+!requirements-api.txt
+**/__pycache__

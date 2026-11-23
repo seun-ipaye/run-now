@@ -16,7 +16,7 @@ etl/    one loader per dataset, plus the shared database connection
 api/    FastAPI service, routing graph and loop finder
 web/    map page served by the API
 tests/  pytest suite (no database needed)
-data/   downloaded files and caches (git-ignored)
+data/   graph/ is the committed routing graph; raw/ and cache/ hold downloads (git-ignored)
 ```
 
 ## Local setup
@@ -36,7 +36,7 @@ docker compose ps       # wait for "healthy"
 
 `docker-compose.yml` pins SQL Server to `2022-CU14-ubuntu-22.04`. Newer images (`2022-latest`) crash under Rosetta on macOS 15 with "file archive is invalid", and Docker's fallback emulator (Rosetta off) crashes with a segmentation fault. Keep the pin unless you've confirmed a newer image starts.
 
-The container runs SQL Server **Developer Edition**, which is licensed for development and testing only. A public deployment needs a production-licensed database, such as Azure SQL Database.
+The container runs SQL Server **Developer Edition**, which is licensed for development and testing only. That is fine here: the deployed app never connects to it (see Deployment).
 
 ### 2. Python
 
@@ -57,13 +57,21 @@ python -m etl.load_streets    # 5-15 min the first time, ~2-4 min after that
 
 Both loaders keep their downloads in `data/` and reuse them on later runs. Pass `--refresh` to download fresh data.
 
-### 4. Run
+### 4. Build the routing graph
+
+```bash
+python -m api.graph
+```
+
+This saves the street network the API routes on to `data/graph/toronto.pickle` (about 43 MB). The file is committed to git, because it's all the deployed app needs: production runs without a database. **Re-run this after re-running a loader**, then commit the new file.
+
+### 5. Run
 
 ```bash
 uvicorn api.main:app --reload
 ```
 
-Open http://localhost:8000 for the map, or http://localhost:8000/docs for the API. The first start builds the routing graph from the database and caches it in `data/cache/routing-graph.pickle`. **Delete that file after re-running a loader** so the API picks up the new data.
+Open http://localhost:8000 for the map, or http://localhost:8000/docs for the API.
 
 ### Tests
 
@@ -73,7 +81,20 @@ pytest
 
 The tests use small hand-built street networks, so they run in about a second with no database or downloads.
 
+## Deployment (Railway)
+
+The live app is one Railway service built from the `Dockerfile`: the API, the map page and the routing graph file. It uses about 420 MB of RAM and needs no database, environment variables or volumes.
+
+1. In Railway, create a project from the GitHub repo. `railway.json` tells it to build the `Dockerfile` and check `/health`.
+2. Under the service's **Settings → Networking**, click **Generate Domain**.
+
+Each push to the deployed branch redeploys. To publish new data: re-run the loaders and `python -m api.graph` locally, then commit and push `data/graph/toronto.pickle`.
+
+The production image installs only `requirements-api.txt` (FastAPI, uvicorn, NetworkX). SQL Server stays on your machine, so the Developer Edition license isn't an issue.
+
 ## API
+
+`GET /health` reports whether the street network is loaded.
 
 `GET /loop?lat=43.6465&lon=-79.4637&km=5` returns a GeoJSON `Feature`: the loop as a `LineString`, plus `distance_km`, `target_km`, `signals` (how many signalized intersections it passes), `signal_locations` and `repeated_km` (distance run twice). Start points must be inside Toronto, and distances between 0.5 and 30 km.
 

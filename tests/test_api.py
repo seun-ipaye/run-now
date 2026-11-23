@@ -41,3 +41,9 @@ def test_map_page_is_served(client):
     res = client.get("/")
     assert res.status_code == 200
     assert "RunNow" in res.text
+
+
+def test_health_reports_the_loaded_network(client):
+    res = client.get("/health")
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok", "nodes": client.graph.number_of_nodes()}
