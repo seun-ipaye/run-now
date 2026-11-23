@@ -3,8 +3,8 @@
 Approach: a loop is a rough triangle start -> A -> B -> start. We try
 waypoint pairs in several directions, route each leg with a signal-penalized
 shortest path, and keep the loop with the fewest signals whose length is
-close to the target. Shortest paths from the start are computed once and
-reused for the first and last legs (the walk network runs both ways).
+close to the target. The second and third legs avoid streets the loop
+already used, so it doesn't double back.
 """
 import math
 from dataclasses import dataclass

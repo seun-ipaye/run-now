@@ -31,11 +31,17 @@ def build_graph() -> nx.DiGraph:
             if g.has_edge(u, v) and g[u][v]["length"] <= length:
                 continue
             g.add_edge(u, v, length=length, name=name)
+    set_weights(g)
+    return g
+
+
+def set_weights(g: nx.DiGraph) -> None:
+    """Weight = length, plus the signal penalty when an edge enters a signalized
+    intersection from outside it."""
     for u, v, d in g.edges(data=True):
         sv = g.nodes[v]["signal_id"]
         enters_signal = sv is not None and sv != g.nodes[u]["signal_id"]
         d["weight"] = d["length"] + (SIGNAL_PENALTY_M if enters_signal else 0)
-    return g
 
 
 def load_graph(rebuild: bool = False) -> nx.DiGraph:
